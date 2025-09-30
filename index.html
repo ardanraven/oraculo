@@ -90,7 +90,7 @@
         
         <!-- Rodapé para digitação -->
         <footer class="bg-[#0f3460] p-3 flex items-center">
-            <input type="text" id="message-input" placeholder="Pergunte ao Oráculo..." class="flex-1 px-4 py-2 text-gray-200 bg-[#1e1e3f] border border-purple-700 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <input type="text" id="message-input" placeholder="Pergunte ao Oráculo..." class="flex-1 px-4 py-2 text-gray-200 bg-[#1e1e3f] border border-purple-700 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50">
             <button id="send-button" class="ml-3 p-3 bg-purple-600 text-white rounded-full hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-transform transform hover:scale-110">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/>
@@ -160,7 +160,7 @@
                 generationConfig: { temperature: 0.7, topK: 1, topP: 1, maxOutputTokens: 2048 }
             };
 
-            const maxRetries = 3;
+            const maxRetries = 13; // AUMENTADO O NÚMERO DE TENTATIVAS
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
                     const response = await fetch(apiUrl, {
@@ -183,10 +183,12 @@
 
                     if (response.status === 503 || response.status === 429) {
                         if (attempt + 1 === maxRetries) {
-                             return `Os véus astrais parecem turvos no momento (${response.status}). Já tentei algumas vezes. Por favor, tente novamente mais tarde.`;
+                             // MENSAGEM DE ERRO ATUALIZADA E MAIS AMIGÁVEL
+                             return "O Oráculo está recebendo muitas solicitações ao mesmo tempo. Por favor, aguarde um pouquinho e tente novamente em breve. ✨";
                         }
                         const waitTime = Math.pow(2, attempt + 1) * 1000;
-                        await delay(waitTime);
+                        const jitter = Math.random() * 1000;
+                        await delay(waitTime + jitter);
                     } else {
                         const errorBody = await response.json();
                         console.error("API Error:", response.status, errorBody);
@@ -202,33 +204,49 @@
                         return "Estou com dificuldades para me conectar ao éter. Verifique sua conexão e tente novamente.";
                     }
                      const waitTime = Math.pow(2, attempt + 1) * 1000;
-                     await delay(waitTime);
+                     const jitter = Math.random() * 1000;
+                     await delay(waitTime + jitter);
                 }
             }
             conversationHistory.pop();
-            return "Não foi possível obter uma resposta após várias tentativas.";
+            // MENSAGEM DE ERRO ATUALIZADA E MAIS AMIGÁVEL
+            return "O Oráculo está recebendo muitas solicitações ao mesmo tempo. Por favor, aguarde um pouquinho e tente novamente em breve. ✨";
         }
 
         async function handleSend() {
             const userMessage = messageInput.value.trim();
-            if (userMessage === "") return;
+            if (userMessage === "" || messageInput.disabled) return;
 
-            addMessage(userMessage, 'message-sent');
-            messageInput.value = '';
+            try {
+                messageInput.disabled = true;
+                sendButton.disabled = true;
+                sendButton.classList.add('opacity-50', 'cursor-not-allowed');
 
-            showTypingIndicator();
-            const aiResponse = await getGeminiResponse(userMessage);
-            removeTypingIndicator();
+                addMessage(userMessage, 'message-sent');
+                messageInput.value = '';
 
-            const messageParts = aiResponse.split('\n').filter(part => part.trim() !== '');
+                showTypingIndicator();
+                const aiResponse = await getGeminiResponse(userMessage);
+                removeTypingIndicator();
 
-            for (let i = 0; i < messageParts.length; i++) {
-                const part = messageParts[i];
-                addMessage(part, 'message-received');
-                
-                if (i < messageParts.length - 1) {
-                    await delay(1200);
+                const messageParts = aiResponse.split('\n').filter(part => part.trim() !== '');
+
+                for (let i = 0; i < messageParts.length; i++) {
+                    const part = messageParts[i];
+                    addMessage(part, 'message-received');
+                    
+                    if (i < messageParts.length - 1) {
+                        await delay(1200);
+                    }
                 }
+            } catch (error) {
+                console.error("Um erro ocorreu:", error);
+                addMessage("Ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.", 'message-received');
+            } finally {
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                sendButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                messageInput.focus();
             }
         }
 
